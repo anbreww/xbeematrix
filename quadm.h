@@ -60,6 +60,9 @@
 #define QM_BYTE_COLS	(QM_BYTE_ROWS*QM_COLS)	// total bytes for one matrix
 #define QM_BUFFER_SIZE	(QM_NUM_BOARDS*QM_BYTE_COLS)
 
+#define QM_X_PIXELS	(QM_COLS*QM_NUM_BOARDS)
+#define QM_Y_PIXELS	(QM_ROWS)
+
 /*
  * Command bytes
  * Matrix takes two kinds of commands.

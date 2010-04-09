@@ -4,5 +4,6 @@
 *.o
 *.out*
 *.swp
+*.swo
 deprecated
 samplecode
