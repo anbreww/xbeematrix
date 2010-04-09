@@ -4,14 +4,16 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <stdio.h>
+#define RAND_MAX 6
 #include <stdlib.h>
 
 // TODO : remove this temporary workaround
 //#define CONFIG_H
 #include "quadm.h"
+#include "uart.h"
 
 
-#define SCROLLRATE      2
+#define SCROLLRATE      0
 
 unsigned char AArray[] ={
 		0x01,0x80,0x03,0xC0,0x07,0xE0,0x0F,0xF0,
@@ -51,6 +53,7 @@ unsigned char Fireday[] ={ 		// "Fireday UNO"
 };
 
 unsigned char bigbuffer[QM_BUFFER_SIZE];
+//unsigned char bigbuffer2[QM_BUFFER_SIZE];
 
 
 int main (void)
@@ -70,38 +73,36 @@ int main (void)
 	unsigned char rxbuff[30];
 	unsigned char txbuff[30];
 	
-	//srand(42);
+
+	unsigned char randseed = 0;
+	uint8_t x = 0;
 
 
 	init_matrix();
 
-#define L_OF 8
+#define L_OF 2
 #define B_END QM_BUFFER_SIZE
-#define null 0
 
-	uint8_t x = 0;
-	for(x = 0; x < QM_BUFFER_SIZE-L_OF; x++)
-	{
-		if (x % 2)
-			bigbuffer[x+L_OF] = (Fireday[x % (ARRAY_LENGTH+1)]);
-		else
-			bigbuffer[x+L_OF] = (Fireday[x % (ARRAY_LENGTH+1)])>>2;
-	}
-	bigbuffer[B_END-2] = 0xff;
-	bigbuffer[B_END-1] = 0xff;
-	bigbuffer[0] = 0x00;
-	bigbuffer[1] = 0x00;
 
-	uart_init(null, rxbuff, null, txbuff);
-	uart_transmit_string_block("Hello World\r\n");
-
-	sprintf(txbuff, "I am a sending buffer\r\n");
-	//uart_start_transmission(10);
 
 	
 
 	while(1)
 	{
+
+		uart_init(0, rxbuff, 0, 0, txbuff);
+		uart_transmit_string_block("Enter byte to use as seed\r\n > ");
+		randseed = uart_receive_byte_block();
+		uart_transmit_byte_block(randseed);
+		uart_transmit_string_block("\r\n");
+
+		srand(randseed);
+
+
+		for(x = 0; x < QM_BUFFER_SIZE-L_OF; x++)
+		{
+			bigbuffer[x] = rand() & rand();
+		}
 
 		_delay_ms(8);
 
@@ -119,7 +120,7 @@ int main (void)
 			//_delay_ms(5000);	// and pause to show the first panel
 		}
 		
-		_delay_ms(5); 	// scroll interval 
+		_delay_ms(75); 	// scroll interval 
 		scroll += SCROLLRATE;	// 1 vertical line = 2 bytes
 
 
