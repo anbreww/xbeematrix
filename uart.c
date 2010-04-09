@@ -1,35 +1,39 @@
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * <joerg@FreeBSD.ORG> wrote this file.  As long as you retain this notice you
- * can do whatever you want with this stuff. If we meet some day, and you think
- * this stuff is worth it, you can buy me a beer in return.        Joerg Wunsch
- * ----------------------------------------------------------------------------
- *
- * Stdio demo, UART implementation
- *
- * $Id: uart.c,v 1.1.2.1 2005/12/28 22:35:08 joerg_wunsch Exp $
- */
-
-#include "defines.h"
-
-#include <stdint.h>
-#include <stdio.h>
-
 #include <avr/io.h>
-
+#include <avr/interrupt.h>
 #include "uart.h"
+#include "config.h"
 
-#ifndef BAUD
-#define BAUD 38400
+#ifndef F_CPU
+#define F_CPU 8000000
 #endif
-#include <util/setbaud.h>
 
-/*
- * Initialize the UART to 9600 Bd, tx/rx, 8N1.
- */
-void uart_init(void)
+#define TRIG_CHAR '\n'
+
+
+/* Internal global variable */
+unsigned char rx_byte=0,tx_byte=0,flag_interrupt_tx = 0;
+unsigned char* buffer_rx= 0,*buffer_tx = 0;
+callback_rx rx_cb;
+callback_tx tx_cb;
+
+/*Init uart module with baudrate set in config.h
+cb_rx must be null to disable rx_interrupt
+cb_tx must be null to disable  tx_interrupt
+_buffer_rx: buffer to receive data, must be >=RX_BUFFER_SIZE defined in config.h
+_buffer_tx: buffer to transmit data, must be >=TX_BUFFER_SIZE defined in config.h
+nb_byte_rx: Number of byte attempt to receive before executing callback cb_rx*/
+void uart_init(callback_rx cb_rx,unsigned char * _buffer_rx,unsigned char nb_byte_rx ,callback_tx cb_tx,unsigned char * _buffer_tx)
 {
+		buffer_rx = _buffer_rx;
+		buffer_tx = _buffer_tx;
+
+		#ifndef BAUD
+		# warning "BAUD is not defined, automatically set to 9600baud"
+		#define	BAUD 9600
+		#endif
+
+		#include <util/setbaud.h>
+
 		UBRR0H = UBRRH_VALUE;
 		UBRR0L = UBRRL_VALUE;
 		#if USE_2X
@@ -38,154 +42,164 @@ void uart_init(void)
 		UCSR0A &= ~(1 << U2X0);
 		#endif
 		UCSR0B |= 0x18;
+
+		if(cb_rx)
+		{
+			UCSR0B|=(1<<RXCIE0);
+			rx_byte = nb_byte_rx;
+			rx_cb = cb_rx;
+		}
+		else
+			UCSR0B &= ~(1<<RXCIE0);
+		
+		if(cb_tx)
+		{
+			UCSR0B|= (1<<TXCIE0);
+			tx_cb = cb_tx;
+		}
+
+		else
+			UCSR0B &= ~(1<<TXCIE0);
+			
 }
 
-/*
- * Send character c down the UART Tx, wait until tx holding register
- * is empty.
- */
-int
-uart_putchar(char c, FILE *stream)
+
+/*To Transmit only one byte, block function,txie interrupt
+will automatically  be disabled for the transmission*/
+void uart_transmit_byte_block(unsigned char data)
+{
+	UCSR0B &= ~(1<<TXCIE0);
+	while ( !( UCSR0A & (1<<UDRE0)));
+	UDR0 = data;
+	UCSR0A|=(1<<TXC0);
+	flag_interrupt_tx = 0;
+	UCSR0B |= (1<<TXCIE0);
+}
+
+void uart_transmit_string_block(char *text)
+{
+	unsigned char i;
+	for(i=0; text[i] != '\0'; i++)
+	{
+		uart_transmit_byte_block((unsigned char)text[i]);
+	}
+}
+
+void uart_start_transmission(unsigned char nb_byte)
+{
+	UDR0 = *buffer_tx;
+	tx_byte = nb_byte;
+}
+
+/* To receive only one byte,block function; rxie interrupt 
+will automatically be disabled uart_enable_rxie must be call to reenable
+reception interrupt*/
+unsigned char uart_receive_byte_block(void)
+{
+	UCSR0B &= ~(1<<RXCIE0);
+	// Wait for data to be received 
+	while ( !(UCSR0A & (1<<RXC0)) );
+	// Get and return received data from buffer 
+	return UDR0;
+}
+
+void uart_enable_rxie(void)
+{
+	UCSR0B |= (1<<RXCIE0);
+}
+
+/* Data: word to transmit
+	mode: must be BIG_ENDIAN or LITTE_ENDIAN*/
+void uart_transmit_word_block(int data, unsigned char mode)
 {
 
-  if (c == '\a')
-    {
-      fputs("*ring*\n", stderr);
-      return 0;
-    }
+	if(mode == BIG_ENDIAN)
+	{
+		while ( !( UCSR0A & (1<<UDRE0)));
+		UDR0 = data&0xFF;
+		while ( !( UCSR0A & (1<<UDRE0)));
+		UDR0 = (data>>8);
+	}
 
-  if (c == '\n')
-    uart_putchar('\r', stream);
-  loop_until_bit_is_set(UCSR0A, UDRE0);
-  UDR0 = c;
+	else if(mode == LITTLE_ENDIAN)
+	{
+		while ( !( UCSR0A & (1<<UDRE0)));
+		UDR0 = (data>>8);
+		while ( !( UCSR0A & (1<<UDRE0)));
+		UDR0 = data&0xFF;
 
-  return 0;
+	}
 }
 
-/*
- * Receive a character from the UART Rx.
- *
- * This features a simple line-editor that allows to delete and
- * re-edit the characters entered, until either CR or NL is entered.
- * Printable characters entered will be echoed using uart_putchar().
- *
- * Editing characters:
- *
- * . \b (BS) or \177 (DEL) delete the previous character
- * . ^u kills the entire input buffer
- * . ^w deletes the previous word
- * . ^r sends a CR, and then reprints the buffer
- * . \t will be replaced by a single space
- *
- * All other control characters will be ignored.
- *
- * The internal line buffer is RX_BUFSIZE (80) characters long, which
- * includes the terminating \n (but no terminating \0).  If the buffer
- * is full (i. e., at RX_BUFSIZE-1 characters in order to keep space for
- * the trailing \n), any further input attempts will send a \a to
- * uart_putchar() (BEL character), although line editing is still
- * allowed.
- *
- * Input errors while talking to the UART will cause an immediate
- * return of -1 (error indication).  Notably, this will be caused by a
- * framing error (e. g. serial line "break" condition), by an input
- * overrun, and by a parity error (if parity was enabled and automatic
- * parity recognition is supported by hardware).
- *
- * Successive calls to uart_getchar() will be satisfied from the
- * internal buffer until that buffer is emptied again.
- */
-int
-uart_getchar(FILE *stream)
+
+/* Send the value of the argument in ASCII code 
+arg must be set between 0 and 999*/	
+void uart_send_dec(int arg)
 {
-  uint8_t c;
-  char *cp, *cp2;
-  static char b[RX_BUFSIZE];
-  static char *rxp;
+	unsigned char centaine = 0,dizaine = 0;
+	while(arg>=100)
+	{
+		arg-=100;
+		centaine++;
+	}
+	while(arg>=10)
+	{
+		arg-=10;
+		dizaine++;
+	}
+	uart_transmit_byte_block(centaine+48);
+	uart_transmit_byte_block(dizaine+48);
+	uart_transmit_byte_block(arg+48);
+}	
 
-  if (rxp == 0)
-    for (cp = b;;)
-      {
-	loop_until_bit_is_set(UCSR0A, RXC0);
-	if (UCSR0A & _BV(FE0))
-	  return _FDEV_EOF;
-	if (UCSR0A & _BV(DOR0))
-	  return _FDEV_ERR;
-	c = UDR0;
-	/* behaviour similar to Unix stty ICRNL */
-	if (c == '\r')
-	  c = '\n';
-	if (c == '\n')
-	  {
-	    *cp = c;
-	    uart_putchar(c, stream);
-	    rxp = b;
-	    break;
-	  }
-	else if (c == '\t')
-	  c = ' ';
 
-	if ((c >= (uint8_t)' ' && c <= (uint8_t)'\x7e') ||
-	    c >= (uint8_t)'\xa0')
-	  {
-	    if (cp == b + RX_BUFSIZE - 1)
-	      uart_putchar('\a', stream);
-	    else
-	      {
-		*cp++ = c;
-		uart_putchar(c, stream);
-	      }
-	    continue;
-	  }
 
-	switch (c)
-	  {
-	  case 'c' & 0x1f:
-	    return -1;
-
-	  case '\b':
-	  case '\x7f':
-	    if (cp > b)
-	      {
-		uart_putchar('\b', stream);
-		uart_putchar(' ', stream);
-		uart_putchar('\b', stream);
-		cp--;
-	      }
-	    break;
-
-	  case 'r' & 0x1f:
-	    uart_putchar('\r', stream);
-	    for (cp2 = b; cp2 < cp; cp2++)
-	      uart_putchar(*cp2, stream);
-	    break;
-
-	  case 'u' & 0x1f:
-	    while (cp > b)
-	      {
-		uart_putchar('\b', stream);
-		uart_putchar(' ', stream);
-		uart_putchar('\b', stream);
-		cp--;
-	      }
-	    break;
-
-	  case 'w' & 0x1f:
-	    while (cp > b && cp[-1] != ' ')
-	      {
-		uart_putchar('\b', stream);
-		uart_putchar(' ', stream);
-		uart_putchar('\b', stream);
-		cp--;
-	      }
-	    break;
-	  }
-      }
-
-  c = *rxp++;
-  if (c == '\n')
-    rxp = 0;
-
-  return c;
+ISR(USART0_RX_vect)
+{
+	PORTC|=(1<<2);
+	static unsigned char no_byte;
+	if(no_byte<(rx_byte-1) && no_byte<(RX_BUFFER_SIZE-1))
+	{
+		*(buffer_rx+no_byte) = UDR0;
+		no_byte++;
+#ifdef TRIG_CHAR
+                if(UDR0 == TRIG_CHAR)
+                {
+                    no_byte = 0;
+                    rx_cb(UDR0);
+                }
+#endif
+	}
+	else
+	{
+		*(buffer_rx+no_byte) = UDR0;
+		no_byte = 0;
+		rx_cb(UDR0);
+	}
 }
 
+
+ISR(USART0_TX_vect)
+{
+	static unsigned char no_byte = 1;
+	
+	
+	if(flag_interrupt_tx) //Avoid enable TXIE interrupt if 0
+	{
+		if(no_byte<tx_byte && no_byte<TX_BUFFER_SIZE)
+		{
+			UDR0 = *(buffer_tx+no_byte);
+			no_byte++;
+		}
+
+		else
+		{
+			no_byte = 1;
+			if(tx_cb)
+				tx_cb();
+		}
+	}
+
+	flag_interrupt_tx = 1;
+
+}

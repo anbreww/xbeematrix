@@ -1,34 +1,36 @@
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * <joerg@FreeBSD.ORG> wrote this file.  As long as you retain this notice you
- * can do whatever you want with this stuff. If we meet some day, and you think
- * this stuff is worth it, you can buy me a beer in return.        Joerg Wunsch
- * ----------------------------------------------------------------------------
- *
- * Stdio demo, UART declarations
- *
- * $Id: uart.h,v 1.1.2.1 2005/12/28 22:35:08 joerg_wunsch Exp $
- */
+/*File Robopoly_uart.h, written by C. Auvigne, October 09*/
 
-/*
- * Perform UART startup initialization.
- */
-void	uart_init(void);
+#ifndef ROBOPOLY_UART_H
+#define ROBOPOLY_UART_h
 
-/*
- * Send one character to the UART.
- */
-int	uart_putchar(char c, FILE *stream);
+enum mode
+{
+	LITTLE_ENDIAN = 0,
+	BIG_ENDIAN
+};
 
-/*
- * Size of internal line buffer used by uart_getchar().
- */
-#define RX_BUFSIZE 80
+typedef void (*callback_rx) (unsigned char last);
+typedef void (*callback_tx)(void);
 
-/*
- * Receive one character from the UART.  The actual reception is
- * line-buffered, and one character is returned from the buffer at
- * each invokation.
- */
-int	uart_getchar(FILE *stream);
+/*Init all uart parameters, doc in .c*/
+void uart_init(callback_rx ,unsigned char*,unsigned char,callback_tx,unsigned char*);
+
+/* Transmit one byte, blocking function*/
+void uart_transmit_byte_block(unsigned char);
+/* Transmit one word, blocking function*/
+void uart_transmit_word_block(int,unsigned char);
+/*Transmit one string, blocking function*/
+void uart_transmit_string_block(char*);
+/*Start a trame transmission, doc in .c*/
+void uart_start_transmission(unsigned char);
+/*Send a int in ASCII format, between 0 and 999*/
+void uart_send_dec(int);
+
+/* Enable reception uart interrupt*/
+void uart_enable_rxie(void);
+
+/* Receive a byte, blocking function*/
+unsigned char uart_receive_byte_block(void);
+
+
+#endif
