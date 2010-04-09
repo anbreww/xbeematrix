@@ -4,7 +4,7 @@
 #include "config.h"
 
 #ifndef F_CPU
-#define F_CPU 8000000
+#define F_CPU 8000000UL
 #endif
 
 #define TRIG_CHAR '\n'
@@ -15,6 +15,11 @@ unsigned char rx_byte=0,tx_byte=0,flag_interrupt_tx = 0;
 unsigned char* buffer_rx= 0,*buffer_tx = 0;
 callback_rx rx_cb;
 callback_tx tx_cb;
+
+
+#define UART_BAUD_SELECT(baudRate, xtalCpu) ((xtalCpu)/((baudRate)*16l)-1)
+#define B57600 UART_BAUD_SELECT(57600, 8000000)*2
+//#define USE_2X 1
 
 /*Init uart module with baudrate set in config.h
 cb_rx must be null to disable rx_interrupt
@@ -29,13 +34,18 @@ void uart_init(callback_rx cb_rx,unsigned char * _buffer_rx,unsigned char nb_byt
 
 		#ifndef BAUD
 		# warning "BAUD is not defined, automatically set to 9600baud"
-		#define	BAUD 9600
+		//#define	BAUD 9600
 		#endif
 
+		
 		#include <util/setbaud.h>
 
 		UBRR0H = UBRRH_VALUE;
 		UBRR0L = UBRRL_VALUE;
+		
+
+		//UBRR0H = (B57600>>8);
+		//UBRR0L = B57600;
 		#if USE_2X
 		UCSR0A |= (1 << U2X0);
 		#else
@@ -43,6 +53,7 @@ void uart_init(callback_rx cb_rx,unsigned char * _buffer_rx,unsigned char nb_byt
 		#endif
 		UCSR0B |= 0x18;
 
+		/*
 		if(cb_rx)
 		{
 			UCSR0B|=(1<<RXCIE0);
@@ -60,6 +71,7 @@ void uart_init(callback_rx cb_rx,unsigned char * _buffer_rx,unsigned char nb_byt
 
 		else
 			UCSR0B &= ~(1<<TXCIE0);
+			*/
 			
 }
 
@@ -69,11 +81,12 @@ will automatically  be disabled for the transmission*/
 void uart_transmit_byte_block(unsigned char data)
 {
 	UCSR0B &= ~(1<<TXCIE0);
-	while ( !( UCSR0A & (1<<UDRE0)));
+	//while ( !( UCSR0A & (1<<UDRE0)));
+	loop_until_bit_is_set(UCSR0A, UDRE0);
 	UDR0 = data;
-	UCSR0A|=(1<<TXC0);
-	flag_interrupt_tx = 0;
-	UCSR0B |= (1<<TXCIE0);
+	//UCSR0A|=(1<<TXC0);
+	//flag_interrupt_tx = 0;
+	//UCSR0B |= (1<<TXCIE0);
 }
 
 void uart_transmit_string_block(char *text)

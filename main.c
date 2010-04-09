@@ -1,5 +1,5 @@
 #ifndef F_CPU
-#define F_CPU 8000000L
+#define F_CPU 8000000UL
 #endif
 #include <avr/io.h>
 #include <util/delay.h>
@@ -7,9 +7,9 @@
 #define RAND_MAX 6
 #include <stdlib.h>
 
-// TODO : remove this temporary workaround
 //#define CONFIG_H
 #include "quadm.h"
+#define BAUD 38400
 #include "uart.h"
 
 
@@ -25,7 +25,7 @@ int main (void)
 {
 	uint8_t scroll = 0;
 
-	_delay_ms(400);
+	_delay_ms(300);
 	PORTA = 0x00;
 	DDRA = 0b11111111;
 	PORTB = 0;
@@ -48,31 +48,64 @@ int main (void)
 #define L_OF 2
 #define B_END QM_BUFFER_SIZE
 
-	srand(42);
+	uart_init(0, rxbuff, 0, 0, txbuff);
+	_delay_ms(300);
+	//uart_transmit_string_block("Ready for input. Please enter command as follows:\r\n ");
+	//uart_transmit_string_block("<delimiter:\\x73><payload-size>payload\r\n ");
+	//randseed = uart_receive_byte_block();
+	//uart_transmit_byte_block(randseed);
+	//uart_transmit_string_block("\r\n");
+	//
+#define READY_FOR_INPUT		'R'
+#define ACCEPTED_DELIMITER 	'K'
+#define END_OF_FILE		'E'
+#define put(x)	uart_transmit_byte_block(x)
+
 
 	
 
 	while(1)
 	{
+		//uart_transmit_string_block("Ready for input. Please enter command as follows:\r\n ");
+		//uart_transmit_string_block("<delimiter:\\x73><payload-size>payload\r\n ");
+		put(READY_FOR_INPUT);
 
-		/*
-		uart_init(0, rxbuff, 0, 0, txbuff);
-		uart_transmit_string_block("Enter byte to use as seed\r\n > ");
-		randseed = uart_receive_byte_block();
-		uart_transmit_byte_block(randseed);
-		uart_transmit_string_block("\r\n");
-		*/
+		// listen for input on uart
+		unsigned char rxchar = 0;
+		while (rxchar != 0x73)
+		{
+			rxchar = uart_receive_byte_block();
+		}
+
+		put(ACCEPTED_DELIMITER);
+		// read array size from next char (low, high)
+		unsigned char size_l = uart_receive_byte_block();
+		//unsigned char size_h = uart_receive_byte_block(); //unimplemented
+		// verify size
+		//uart_send_dec((int)size_l);
+		//
+		int i = 0;
+		for (i = 0; i < size_l; i++)
+		{
+			bigbuffer[i] = uart_receive_byte_block();
+		}
+
+		//put(END_OF_FILE);
+		//put('\r');
+		//put('\n');
+
+
+		// display new info on board
+
+
 
 		//srand(randseed);
 
 
-		for(x = 0; x < QM_BUFFER_SIZE-L_OF; x++)
-		{
-			bigbuffer[x] = rand() & rand() ;
-		}
 
-		_delay_ms(8);
+		//_delay_ms(8);
 
+		//write_array_to_board(bigbuffer,scroll,QM_BUFFER_SIZE-1);
 		write_array_to_board(bigbuffer,scroll,QM_BUFFER_SIZE-1);
 
 
@@ -82,7 +115,7 @@ int main (void)
 			//_delay_ms(5000);	// and pause to show the first panel
 		}
 		
-		_delay_ms(75); 	// scroll interval 
+		//_delay_ms(75); 	// scroll interval 
 		scroll += SCROLLRATE;	// 1 vertical line = 2 bytes
 
 
