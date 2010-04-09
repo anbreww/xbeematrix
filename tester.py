@@ -6,21 +6,33 @@ from font import font
 
 buffer_size = 24*8
 offset = 0
+buffer_limit = 48*4 # soft limit for testing purposes
 
 # build font dictionary
 fdict = dict()
 for i in range(len(font)):
-    fdict[chr(ord('a')+i)] = [chr(c) for c in font[i]]
-
+    fdict[chr(ord('a')+i)] = font[i]
 
 
 s = serial.Serial('/dev/ttyUSB0', 38400, timeout=0,
         parity=serial.PARITY_NONE)
 
-buffer = list(buffer_size*chr(offset))
 
-for j in range(10000):
-    buffer[-1] = chr(offset)
+buffer = range(buffer_size)
+
+DEBUG = None
+
+def debugprint(str):
+    if(DEBUG):
+        print(str)
+
+def update_buffer(iteration):
+    buffer[10] = (iteration%255)
+
+iter = 0
+# main program loop
+while 1:
+    iter += 1
 
     while(s.read() != 'R'):
         s.write('A')
@@ -35,7 +47,8 @@ for j in range(10000):
 
     if nextchar == 'K':
         #print("target confirmed. sending size")
-        s.write(chr(buffer_size))
+        #s.write(chr(buffer_size))
+        s.write(chr(buffer_limit))
     else:
         print("ERROR: " + nextchar)
 
@@ -45,18 +58,9 @@ for j in range(10000):
 
     #print("size confirmed : %d (sent %d)" % (int(size), buffer_size))
 
-    #buffer[0:10:2] = [chr(c) for c in font[0]]
-    buffer[0:-1:2] = [chr(0) for i in buffer[0:-1:2]]
-    #buffer[1:-1:2] = [chr(0) for i in buffer[1:-1:2]]
+    update_buffer(iter)
 
-
-    for i in range(0,192,12):
-        buffer[i:i+10:2] = fdict[chr(ord('a')+(i/12+offset/12)%46)]
-
-    fillchar = 0xff if (4*j) % (2*buffer_size) < buffer_size else 0x00
-    buffer[-(4*j+1)%192] = chr(fillchar)
-    buffer[-(4*j+3)%192] = chr(fillchar)
-    buffer_str = ''.join(buffer)
+    buffer_str = ''.join([chr(c) for c in buffer[0:buffer_limit]])
     s.write(buffer_str)
 
     #for i in range(buffer_size/16):
