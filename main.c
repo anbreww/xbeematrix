@@ -40,7 +40,7 @@ int main (void)
 	
 
 	unsigned char randseed = 0;
-	uint8_t x = 0;
+	//uint8_t x = 0;
 
 
 	init_matrix();
@@ -72,14 +72,15 @@ int main (void)
 
 		// listen for input on uart
 		unsigned char rxchar = 0;
-		unsigned char nops = 0;
+		unsigned char nops;
+		nops = 0;
 		while (rxchar != 0x73)
 		{
 			rxchar = uart_receive_byte_block();
 
 			nops++;
 			// so I don't have to keep pressing reset :)
-			if (nops==0)
+			if (nops%128==0)
 				put(READY_FOR_INPUT); 
 		}
 

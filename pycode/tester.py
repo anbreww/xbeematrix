@@ -13,6 +13,8 @@ fdict = dict()
 for i in range(len(font)):
     fdict[chr(ord('a')+i)] = font[i]
 
+fdict[' '] = (0,0)
+
 
 s = serial.Serial('/dev/ttyUSB0', 38400, timeout=0,
         parity=serial.PARITY_NONE)
@@ -26,17 +28,43 @@ def debugprint(str):
     if(DEBUG):
         print(str)
 
+def makeword(string):
+    '''Return a list of bytes with characters and spaces'''
+    outlist = []
+    for c in string:
+        outlist.extend(fdict[c])
+        outlist.append(0)
+    return outlist
+
+def list_to_buffer(list, startcol=0, row='top'):
+    '''Write a list to buffer on one line''' 
+    row = 0 if row == 'top' else 1
+    begin = startcol*2 + row
+    end = begin+2*len(list)
+    buffer[begin:end:2] = list
+
+
+
 def update_buffer(iteration):
-    buffer[10] = (iteration%255)
+    buffer[190] = (iteration%255)
+    buffer[191] = (iteration%255)
+    buffer[0:10:2] = fdict['a']
+    list_to_buffer(makeword("robopoly \x7f"))
+    list_to_buffer(makeword("my name is andrew "), 0, 'bottom')
+
+
+
+
 
 iter = 0
 # main program loop
 while 1:
     iter += 1
 
+    # wait until matrix is ready to receive data
     while(s.read() != 'R'):
         s.write('A')
-        time.sleep(0.001)
+        time.sleep(0.0001)
 
 #send start byte
     s.write('s')
