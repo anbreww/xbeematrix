@@ -1,4 +1,4 @@
-from font import font
+from lcdfont import font as xfont
 
 
 def char_to_hashes(char):
@@ -20,20 +20,11 @@ def print_list(list):
     for line in output:
         print(line)
 
-
-
-fdict = dict()
-
-for i in range(26):
-    '''Populate lowercase letters'''
-    fdict[chr(ord('a')+i)] = font[i]
-
-for i in range(10):
-    '''Populate digits'''
-    fdict[chr(ord('0')+i)] = font[26+i]
-
-fdict[' '] = (0,0)
-
+def return_list(list):
+    '''same as print_list but return a list of lines instead of printing'''
+    hashes = char_to_hashes(list)
+    output = rotate_list(hashes)
+    return output
 
 def print_dict():
     for (key, char) in fdict.items():
@@ -55,7 +46,7 @@ def make_word(string):
         word.extend([0])
     return word
 
-def print_word(string, maxlen=0):
+def print_text(string, maxlen=0):
     if maxlen > 0:
         n_lines = len(string)/maxlen
         lines=[]
@@ -70,4 +61,9 @@ def print_word(string, maxlen=0):
         print
         print_list(word)
 
-print_word("hello world 1234567890", 6)
+if __name__ == '__main__':
+    fdict = dict()
+    for i in range(len(xfont)):
+        fdict[chr(ord(' ')+i)] = xfont[i]
+
+    print_text("hello world 1234567890 &%#", 6)
