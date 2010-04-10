@@ -1,13 +1,13 @@
 '''  Andrew Watson - 2009
 
      5x7 font for digits and letters
-     source : Alf Storm ( via http:#heim.ifi.uio.no/haakoh/avr/ )
+     source : Alf Storm ( via http://heim.ifi.uio.no/haakoh/avr/ )
      other characters (symbols) manually copied from LCD datasheet
 
      warning : characters are stored in program memory and NOT loaded into SRAM.
      to read a character, use the following syntax : 
      byte = pgm_read_byte(&(letters_5x7[i][j]));
-     ref : http:#www.nongnu.org/avr-libc/user-manual/pgmspace.html
+     ref : http://www.nongnu.org/avr-libc/user-manual/pgmspace.html
      
      Implemented about half of ASCII charset (enough for most purposes)
      since we have plenty of program memory.
