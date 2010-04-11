@@ -1,10 +1,12 @@
 #!/bin/python
 
-import serial
 import signal
 import time
+
 import formatting as form
+import ledmatrix
 from lcdfont import font
+
 import mpd
 
 import os
@@ -12,11 +14,6 @@ import threading
 
 import curses
 
-#curses.keypad(1)
-
-buffer_size = 24*8
-buffer_limit = 48*4 # soft limit for testing purposes
-total_columns = 96
 
 class InputThread(threading.Thread):
     '''Listen for keyboard input.
@@ -25,190 +22,61 @@ class InputThread(threading.Thread):
 
     def run(self):
         #stdscr.addstr(17,0,"Thread running")
-        m.stdscr.refresh()
+        #ui.stdscr.refresh()
         while 1:
-            c = m.stdscr.getch()
+            c = ui.stdscr.getch()
             if c == ord('q'):
-                m.terminate()
+                m.close()
+                ui.terminate()
 
 
-DEBUG = None
-
-class Matrix():
-    '''Wrapper for Quad matrix.
-
-    set sim=False to disable terminal output
-    set ser=False to disable output to matrix (simulation mode)
-    '''
-    num_panels=4
-    lines_per_panel=2
-    panel_size=24*num_panels*lines_per_panel
-    buffer_size=panel_size*3
-
-    s_title=""
-    s_artist=""
-
-    #fdict=dict() # font dictionary
-
-    buffer = []
-    
-    def __init__(self, sim=True, ser=True):
-        '''Initialize a matrix module with serial communication and font lookup
-        table
-        '''
-        self.buffer_size=self.panel_size*3
-        self._build_font()
-        self.buffer = [0 for i in range(self.buffer_size)]
-        self.sim = sim
-        self.ser = ser
-        self.finished = False
-        
-        if self.ser:
-            self.s = serial.Serial('/dev/ttyUSB0', 38400, timeout=0,
-                                    parity=serial.PARITY_NONE)
-        if self.sim:
-            self.stdscr = curses.initscr()
-            curses.start_color()
-            curses.use_default_colors()
-            curses.cbreak()
-            curses.noecho()
-            curses.curs_set(0) # hide cursor
-            self.mpad = curses.newpad(17,98)
-        else:
-            print("Disabled simulator output")
-
-    def set_buffer_size(self,new_size):
-        self.buffer_size=new_size
-        self.buffer = [0 for i in range(self.buffer_size)]
-
-    def __del__(self):
-        #self.s.close()
-        pass
-
-    def close(self):
-        '''Close all open connections'''
-        if self.ser:
-            self.s.close()
-        self.finished = True
-
-    def _build_font(self,fnt='default'):
-        '''Parse font from a file and populate dictionary'''
-        self.fdict = dict()
-        for i in range(len(font)):
-            self.fdict[chr(ord(' ')+i)] = font[i]
-
-        self.fdict[' '] = (0,0,0) # override space to make it smaller
-
-
-    def list_to_buffer(self, list, startcol=0, row='top'):
-        '''Write a list to buffer on one line''' 
-        row = 0 if row == 'top' else 1
-        begin = startcol*2 + row
-        end = begin+2*len(list)
-        if end > len(self.buffer):
-            end = len(self.buffer)
-        self.buffer[begin:end:2] = list[:(end-begin/2)/2]
-
-    def compute_breakpos(self, string, length=96):
-        '''Returns index of line break for a given string
-        If string occupies less than [length], return 0'''
-        buf = []
-        for i in range(len(string)):
-            buf.extend(f.make_word(string[i], self.fdict))
-            if len(buf) > length:
-                return i
-        return None
-
-    def roll(self, string, direction='left', padding=0, padchar=' '):
-        s = string
-        if direction == 'left':
-            i = 1
-        else:
-            i = -1
-        return ''.join( [ s[i:],s[:i] ] )
-
-
-    def text_to_buffer(self, string, startcol=0, startrow='top', linebreak=True):
-        index = None
-        if linebreak:
-            index = self.compute_breakpos(string,total_columns-startcol)
-        word = f.make_word(string[:index], self.fdict)
-        self.list_to_buffer(word, startcol, startrow)
-        if linebreak and startrow=='top':
-            word = f.make_word(string[index:], self.fdict)
-            self.list_to_buffer(word, startcol, row='bottom')
-
-    def scroll_buffer(self, direction='left'):
-        if direction == 'left':
-            self.buffer.append(self.buffer.pop(0))
-            self.buffer.append(self.buffer.pop(0))
-        else:
-            self.buffer.insert(0, self.buffer.pop())
-            self.buffer.insert(0, self.buffer.pop())
-
-    def get_buffer(self):
-        return self.buffer
-
-    def set_buffer(self, newbuffer):
-        self.buffer = newbuffer
+class Interface():
+    '''Contains all UI-related tasks'''
+    def __init__(self):
+        self.stdscr = curses.initscr()
+        curses.start_color()
+        curses.use_default_colors()
+        curses.cbreak()
+        curses.noecho()
+        curses.curs_set(0) # hide cursor
+        self.mpad = curses.newpad(17,98)
 
     def terminate(self):
-        self.close()
-        if self.sim:
-            curses.nocbreak(); self.stdscr.keypad(0); curses.echo()
-            curses.endwin()
+        '''kill graphical interface and exit program'''
+        curses.nocbreak(); self.stdscr.keypad(0); curses.echo()
+        curses.endwin()
         os.sys.exit()
 
+    def centered_status(self,statusmsg, win=None, color=None):
+        '''print a centered message at bottom of pad'''
+        white_bold = curses.color_pair(0) 
+        if not win:
+            win = self.mpad
+        if not color:
+            color = curses.color_pair(0) | curses.A_BOLD
+        (winy, winx) = win.getmaxyx()
+        status = statusmsg 
+        leftx = (winx-len(status))/2+2
+        rightx = (winx+len(status))/2+2
+        win.addstr(winy-1,leftx-2, "[ ", white_bold)
+        win.addstr(winy-1,rightx, " ]", white_bold)
+        win.addstr(winy-1,leftx,status, color | curses.A_BOLD)
 
-    def refresh(self):
-        if self.ser == False:
-            time.sleep(0.03)
-            return
-        # wait until matrix is ready to receive data
-        while(self.s.read() != 'R'):
-            self.s.write('A')
-            time.sleep(0.0001)
-
-        #send start byte
-        self.s.write('s')
-
-        nextchar = self.s.read()
-        while(nextchar == ''):
-            nextchar = self.s.read()
-
-        if nextchar == 'K':
-            #print("target confirmed. sending size")
-            #s.write(chr(buffer_size))
-            self.s.write(chr(buffer_limit))
+    def sec_to_hms(self, s):
+        # TODO : this belongs in the mpd (or formatter) module!!
+        '''convert seconds to h:mm:ss format. accepts str and number types'''
+        s = int(s)
+        h = s/3600
+        s -= 3600*h
+        m = s/60
+        s -= 60*m
+        if h > 0:
+            return "%d:%02d:%02d" % (h, m, s)
         else:
-            print("ERROR: " + nextchar)
-
-        #time.sleep(0.001)
-
-        #size = s.readline()
-
-        #print("size confirmed : %d (sent %d)" % (int(size), buffer_size))
-
-
-        buffer_str = ''.join([chr(c) for c in self.buffer[0:buffer_limit]])
-        self.s.write(buffer_str)
+            return "%d:%02d" % (m,s)
 
 
 
-s_title = ""
-s_artist = ""
-
-def sec_to_hms(s):
-    s = int(s)
-    h = s/3600
-    s -= 3600*h
-    m = s/60
-    s -= 60*m
-
-    if h > 0:
-        return "%2s:%s:%s" % (h, m, s)
-    else:
-        return "%d:%02d" % (m,s)
 
 def update_buffer(iteration):
     #buffer[191] = (iteration%255)
@@ -239,7 +107,7 @@ def update_buffer(iteration):
         #m.text_to_buffer("{0:<20s}".format(song['artist']), linebreak=False)
         #m.text_to_buffer("{0:<25s}".format(song['title']), linebreak=False, startrow='bottom')
     t = tuple(mpdclient.status()['time'].split(':'))
-    timestat = "{0} / {1}".format(sec_to_hms(t[0]), sec_to_hms(t[1]))
+    timestat = "{0} / {1}".format(ui.sec_to_hms(t[0]), ui.sec_to_hms(t[1]))
     n = len(timestat)
     n = str((96-n*6)/10+n+1)
     timestat = ''.join(["{0:>",n,"}"]).format(timestat)
@@ -247,10 +115,10 @@ def update_buffer(iteration):
 
     #os.system("clear")
     if m.sim:
-        m.stdscr.erase()
-        m.stdscr.border()
-        (winy, winx) = m.stdscr.getmaxyx()
-        (pady, padx) = m.mpad.getmaxyx()
+        ui.stdscr.erase()
+        ui.stdscr.border()
+        (winy, winx) = ui.stdscr.getmaxyx()
+        (pady, padx) = ui.mpad.getmaxyx()
         if pady >= winy :
             pady = winy-1
         if padx >= winx :
@@ -261,7 +129,7 @@ def update_buffer(iteration):
 
 
         #if (winy < 18 or winx < 98):
-        #    m.stdscr.addstr(1,1,"Terminal too small!")
+        #    ui.stdscr.addstr(1,1,"Terminal too small!")
         #else:
         lines = []
         lines= f.return_list(m.get_buffer()[:192:2])
@@ -269,30 +137,31 @@ def update_buffer(iteration):
         lines.extend(f.return_list(m.get_buffer()[1:192:2]))
         ypos = 1
         for line in lines:
-            #m.stdscr.addstr(ypos,1,line,  curses.color_pair(1) | curses.A_BOLD)
-            m.mpad.addstr(ypos,1,line,  curses.color_pair(1) | curses.A_BOLD)
+            #ui.stdscr.addstr(ypos,1,line,  curses.color_pair(1) | curses.A_BOLD)
+            ui.mpad.addstr(ypos,1,line,  curses.color_pair(1) | curses.A_BOLD)
             ypos += 1
-        m.mpad.border()
-        centered_status("LED Matrix Controller - Andrew Watson - 2010")
+        ui.mpad.border()
+        #ui.centered_status("LED Matrix Controller - Andrew Watson - 2010")
+        #ui.centered_status("Robopoly", ui.stdscr, curses.color_pair(1))
+        ui.centered_status(
+            "LED Matrix Controller | Andrew Watson | Robopoly - 2010",
+            ui.stdscr)
+
         #mpdclient.connect('localhost',6600)
-        m.stdscr.refresh()
-        m.mpad.refresh( 0,0, pady0, padx0, pady0+pady, padx0+padx)
+        ui.stdscr.refresh()
+        ui.mpad.refresh( 0,0, pady0, padx0, pady0+pady, padx0+padx)
 
 
-def centered_status(statusmsg):
-    (winy, winx) = m.mpad.getmaxyx()
-    status = "[ " + statusmsg + " ]"
-    m.mpad.addstr(winy-1,(winx-len(status))/2,status, curses.color_pair(0) |
-            curses.A_BOLD)
 
 def sigwinch_handler(n, frame):
     curses.endwin()
-    m.stdscr = curses.initscr()
+    ui.stdscr = curses.initscr()
 
 
 
 if __name__ == '__main__':
-    m = Matrix(sim=True,ser=True)
+    ui = Interface()
+    m = ledmatrix.Matrix(sim=True,ser=True)
     f = form.Formatter(m.fdict)
 
     mpdclient = mpd.MPDClient()
@@ -320,5 +189,5 @@ if __name__ == '__main__':
 
 
 
-#curses.nocbreak(); m.stdscr.keypad(0); curses.echo()
+#curses.nocbreak(); ui.stdscr.keypad(0); curses.echo()
 #curses.endwin()
