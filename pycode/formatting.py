@@ -2,7 +2,7 @@ from lcdfont import font as xfont
 
 class Formatter():
     '''Provides various buffer and string manipulation methods'''
-    def __init__(self, font_dictionary):
+    def __init__(self, font_dictionary=xfont):
         self.fdict = font_dictionary
 
     def char_to_hashes(self,char):
@@ -67,6 +67,26 @@ class Formatter():
             word = self.make_word(line, self.fdict)
             print
             self.print_list(word)
+
+    def center_text(self, string, width):
+        n = len(string)
+        n = str((width-n*6)/10+n+1)
+        string = ''.join(["{0:>",n,"}"]).format(string)
+        return string
+
+    def sec_to_hms(self, s):
+        '''convert seconds to h:mm:ss format. accepts str and number types'''
+        s = int(s)
+        h = s/3600
+        s -= 3600*h
+        m = s/60
+        s -= 60*m
+        if h > 0:
+            return "%d:%02d:%02d" % (h, m, s)
+        else:
+            return "%d:%02d" % (m,s)
+
+
 
 if __name__ == '__main__':
     fontdict = dict()
