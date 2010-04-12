@@ -1,15 +1,13 @@
-#ifndef F_CPU
-#define F_CPU 8000000UL
-#endif
 #include <avr/io.h>
+
+#include "config.h"
+
 #include <util/delay.h>
 #include <stdio.h>
 #define RAND_MAX 6
 #include <stdlib.h>
 
-//#define CONFIG_H
 #include "quadm.h"
-#define BAUD 38400
 #include "uart.h"
 
 

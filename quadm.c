@@ -1,7 +1,5 @@
 #include <avr/io.h>
-#ifndef F_CPU
-#define F_CPU 8000000L
-#endif
+#include "config.h"
 #include <util/delay.h>
 
 #include "quadm.h"

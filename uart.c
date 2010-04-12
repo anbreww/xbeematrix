@@ -3,9 +3,6 @@
 #include "uart.h"
 #include "config.h"
 
-#ifndef F_CPU
-#define F_CPU 8000000UL
-#endif
 
 #define TRIG_CHAR '\n'
 

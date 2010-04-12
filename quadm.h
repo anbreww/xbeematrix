@@ -13,8 +13,8 @@
  * Pin and Port definitions. Should live in a config.h
  */
 
-#ifndef CONFIG_H
-//#warning "Configuration file not defined. Using default pin mapping"
+#ifndef HARDWARE_H
+//#warning "Hardware configuration file not defined. Using default pin mapping"
 
 
 #define MATRIX_DDR 	DDRA
