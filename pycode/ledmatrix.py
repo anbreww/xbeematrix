@@ -11,10 +11,10 @@ class Matrix():
     '''
     num_panels = 4
     lines_per_panel = 2
-    panel_size = 24*num_panels*lines_per_panel
-    buffer_size = panel_size*3
-    panel_columns = num_panels*24
-    total_columns = buffer_size/2
+    panel_size = 24 * num_panels * lines_per_panel
+    buffer_size = panel_size * 3
+    panel_columns = num_panels * 24
+    total_columns = buffer_size / 2
 
     buffer_limit = panel_size # limit serial transmission to n bytes
 
@@ -29,9 +29,9 @@ class Matrix():
         '''Initialize a matrix module with serial communication and font lookup
         table
         '''
-        self.buffer_size=self.panel_size*3
+        self.buffer_size = self.panel_size * 3
         self._build_font()
-        self.buffer = [0 for i in range(self.buffer_size)]
+        self.buffer = self.buffer_size * [0]
         self.sim = sim
         self.ser = ser
         self.finished = False

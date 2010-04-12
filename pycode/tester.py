@@ -12,6 +12,7 @@ import mpdinfo
 #import mpd
 
 import os
+import sys
 import threading
 
 import curses
@@ -28,8 +29,9 @@ class InputThread(threading.Thread):
         while 1:
             c = ui.stdscr.getch()
             if c == ord('q'):
-                m.close()
-                ui.terminate()
+                break
+        ui.terminate()
+        m.close()
 
 
 class Interface():
@@ -56,7 +58,7 @@ class Interface():
         '''kill graphical interface and exit program'''
         curses.nocbreak(); self.stdscr.keypad(0); curses.echo()
         curses.endwin()
-        os.sys.exit()
+        sys.exit()
 
     def centered_status(self,statusmsg, win=None, color=None):
         '''print a centered message at bottom of pad'''
@@ -107,6 +109,8 @@ class Interface():
         #mpdclient.connect('localhost',6600)
         self.stdscr.refresh()
         self.mpad.refresh( 0,0, pady0, padx0, pady0+pady, padx0+padx)
+
+
 
 
 
