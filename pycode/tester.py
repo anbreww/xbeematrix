@@ -38,6 +38,8 @@ class Interface():
     '''Contains all UI-related tasks'''
 
     statusstring = "LED Matrix Controller | Andrew Watson | Robopoly - 2010"
+    display_fps = False
+    fps = ''
 
     def __init__(self):
         self.stdscr = curses.initscr()
@@ -75,6 +77,16 @@ class Interface():
         win.addstr(winy-1,rightx, " ]", white_bold)
         win.addstr(winy-1,leftx,status, color | curses.A_BOLD)
 
+    def statusline(self, statusmsg, color=None):
+        '''print a status message at the bottom of main window'''
+        win = self.stdscr
+        if not color:
+            color = curses.color_pair(0)
+        (winy, winx) = win.getmaxyx()
+        xbegin = winx - len(statusmsg) - 1
+        win.addstr(winy-2,xbegin,statusmsg, color | curses.A_BOLD)
+
+
     def update(self):
         '''update curses ui
 
@@ -104,11 +116,15 @@ class Interface():
         self.mpad.border()
         #self.centered_status("LED Matrix Controller - Andrew Watson - 2010")
         #self.centered_status("Robopoly", self.stdscr, curses.color_pair(1))
+        if self.display_fps:
+            self.statusline(self.fps)
         self.centered_status(self.statusstring , self.stdscr)
 
         #mpdclient.connect('localhost',6600)
         self.stdscr.refresh()
         self.mpad.refresh( 0,0, pady0, padx0, pady0+pady, padx0+padx)
+
+
 
 
 
@@ -146,14 +162,23 @@ if __name__ == '__main__':
     f = form.Formatter(m.fdict)
     mpdi = mpdinfo.MpdInfo()
 
+    lasttime = time.time()
+
 
     if m.sim:
         ui = Interface()
+        ui.display_fps = True
         InputThread().start()
 
     iter = 0
     # main program loop
     while 1:
+        if iter % 10 == 0:
+            newtime = time.time()
+            frame_time = newtime - lasttime
+            lasttime = newtime
+            if iter > 0:
+                ui.fps = "FPS : {0:<3.0f}".format(10/frame_time)
         iter += 1
         time.sleep(0.015)
         update_buffer(iter)
