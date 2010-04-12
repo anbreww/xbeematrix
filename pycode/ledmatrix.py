@@ -38,7 +38,7 @@ class Matrix():
         self.formatter = form.Formatter(self.fdict)
         
         if self.ser:
-            self.s = serial.Serial('/dev/ttyUSB0', 38400, timeout=0,
+            self.s = serial.Serial('/dev/ttyUSB0', 115200, timeout=0,
                                     parity=serial.PARITY_NONE)
         if self.sim:
             #interface = Interface()
