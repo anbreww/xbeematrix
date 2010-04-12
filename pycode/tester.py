@@ -121,8 +121,9 @@ def update_buffer(iteration):
     if(iteration < 2):
         m.set_buffer_size(int(m.panel_size*3))
 
-    m.scroll_buffer('left')
-    m.scroll_buffer('left')
+    if(iteration % 2 == 0):
+        m.scroll_buffer('left')
+        m.scroll_buffer('left')
 
     
     nowplaying = mpdi.get_nowplaying()
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     # main program loop
     while 1:
         iter += 1
-        time.sleep(0.05)
+        time.sleep(0.015)
         update_buffer(iter)
         m.refresh()
 
