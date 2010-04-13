@@ -26,13 +26,30 @@ class InputThread(threading.Thread):
     def run(self):
         #stdscr.addstr(17,0,"Thread running")
         #ui.stdscr.refresh()
+        if not m.sim:
+            self.show_help()
         while 1:
-            c = ui.stdscr.getch()
-            if c == ord('q'):
-                break
+            if m.sim:
+                c = ui.stdscr.getch()
+                if c == ord('q'):
+                    break
+            else:
+                print "\n >",
+                i = raw_input()
+                if i == 'q':
+                    break
+                elif i == 'h':
+                    self.show_help()
+                else:
+                    print("Command not recognized")
         m.finished = True
         m.running = False
         #ui.terminate()
+
+    def show_help(self):
+        print("Available commands:")
+        print("q - quit")
+        print("h - help")
 
 
 class Interface():
@@ -138,8 +155,9 @@ class MatrixUpdater(threading.Thread):
         #time.sleep(2)
         while 1 and m.running:
             timer.wait_until_reaches(interval)
-            ui.matrixfps = "Matrix FPS : {0:<5.1f}".format(
-                    1/(timer.get_elapsed()))
+            if m.sim:
+                ui.matrixfps = "Matrix FPS : {0:<5.1f}".format(
+                        1/(timer.get_elapsed()))
             timer.start()
             buffer_lock.acquire()
             m.copybuffer()
@@ -219,24 +237,25 @@ if __name__ == '__main__':
     if m.sim:
         ui = Interface()
         ui.display_fps = True
-        InputThread().start()
+    InputThread().start()
 
     iter = 0
     updater = MatrixUpdater().start()
     # main program loop
     while 1 and m.running:
-        if iter % 10 == 0:
+        if iter % 10 == 0 and m.sim == True:
             newtime = time.time()
             frame_time = newtime - lasttime
             lasttime = newtime
             if iter > 0:
-                ui.simfps = "FPS : {0:<5.1f}".format(10/frame_time)
+                ui.simfps = "Buffer FPS : {0:<5.1f}".format(10/frame_time)
         iter += 1
         time.sleep(0.015)
         update_buffer(iter)
         #m.copybuffer()
         #m.refresh()
 
-    ui.terminate()
+    if m.sim:
+        ui.terminate()
 
 
