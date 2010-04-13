@@ -148,7 +148,7 @@ class Interface():
 
 class MatrixUpdater(threading.Thread):
     '''Thread to update matrix at a given rate'''
-    def run(self, framerate=30.1):
+    def run(self, framerate=40.1):
         timer = Timer()
         timer.start()
         interval = 1./framerate
@@ -205,7 +205,7 @@ def update_buffer(iteration):
     nowplaying = mpdi.get_nowplaying()
 
     buffer_lock.acquire()
-    if(iteration % 2 == 0):
+    if(iteration % 1 == 0):
         m.scroll_buffer('left')
         m.scroll_buffer('left')
 
@@ -241,8 +241,16 @@ if __name__ == '__main__':
 
     iter = 0
     updater = MatrixUpdater().start()
+
+    # in fps
+    buffer_scroll_rate = 30
+    buffer_timer = Timer()
+    buffer_timer.start()
+
     # main program loop
     while 1 and m.running:
+        buffer_timer.wait_until_reaches(1./buffer_scroll_rate)
+        buffer_timer.start()
         if iter % 10 == 0 and m.sim == True:
             newtime = time.time()
             frame_time = newtime - lasttime
@@ -250,7 +258,7 @@ if __name__ == '__main__':
             if iter > 0:
                 ui.simfps = "Buffer FPS : {0:<5.1f}".format(10/frame_time)
         iter += 1
-        time.sleep(0.015)
+        #time.sleep(1./buffer_scroll_rate)
         update_buffer(iter)
         #m.copybuffer()
         #m.refresh()
