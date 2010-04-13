@@ -35,6 +35,7 @@ class Matrix():
         self.sim = sim
         self.ser = ser
         self.finished = False
+        self.running = True
         self.formatter = form.Formatter(self.fdict)
         
         if self.ser:
@@ -62,6 +63,7 @@ class Matrix():
         if self.ser:
             self.s.close()
         self.finished = True
+        self.running = False
 
     def _build_font(self,fnt='default'):
         '''Parse font from a file and populate dictionary'''

@@ -30,6 +30,8 @@ class InputThread(threading.Thread):
             c = ui.stdscr.getch()
             if c == ord('q'):
                 break
+        m.finished = True
+        m.running = False
         ui.terminate()
         m.close()
 
@@ -39,7 +41,8 @@ class Interface():
 
     statusstring = "LED Matrix Controller | Andrew Watson | Robopoly - 2010"
     display_fps = False
-    fps = ''
+    simfps = ''
+    matrixfps = ''
 
     def __init__(self):
         self.stdscr = curses.initscr()
@@ -77,14 +80,14 @@ class Interface():
         win.addstr(winy-1,rightx, " ]", white_bold)
         win.addstr(winy-1,leftx,status, color | curses.A_BOLD)
 
-    def statusline(self, statusmsg, color=None):
+    def statusline(self, statusmsg, color=None, offset=0):
         '''print a status message at the bottom of main window'''
         win = self.stdscr
         if not color:
             color = curses.color_pair(0)
         (winy, winx) = win.getmaxyx()
         xbegin = winx - len(statusmsg) - 1
-        win.addstr(winy-2,xbegin,statusmsg, color | curses.A_BOLD)
+        win.addstr(winy-2-offset,xbegin,statusmsg, color | curses.A_BOLD)
 
 
     def update(self):
@@ -117,7 +120,8 @@ class Interface():
         #self.centered_status("LED Matrix Controller - Andrew Watson - 2010")
         #self.centered_status("Robopoly", self.stdscr, curses.color_pair(1))
         if self.display_fps:
-            self.statusline(self.fps)
+            self.statusline(self.simfps)
+            self.statusline(self.matrixfps, offset=1)
         self.centered_status(self.statusstring , self.stdscr)
 
         #mpdclient.connect('localhost',6600)
@@ -126,7 +130,19 @@ class Interface():
 
 
 
-
+class MatrixUpdater(threading.Thread):
+    '''Thread to update matrix at a given rate'''
+    def run(self, framerate=30):
+        lastframe = time.time()
+        interval = 1./framerate
+        time.sleep(2)
+        while 1 and m.running:
+            while time.time() < (lastframe + interval):
+                time.sleep(0.001)
+            ui.matrixfps = "Matrix FPS : {0:<5.1f}".format(
+                    1/(time.time() - lastframe))
+            lastframe = time.time()
+            m.refresh()
 
 
 
@@ -171,6 +187,7 @@ if __name__ == '__main__':
         InputThread().start()
 
     iter = 0
+    updater = MatrixUpdater().start()
     # main program loop
     while 1:
         if iter % 10 == 0:
@@ -178,10 +195,10 @@ if __name__ == '__main__':
             frame_time = newtime - lasttime
             lasttime = newtime
             if iter > 0:
-                ui.fps = "FPS : {0:<3.0f}".format(10/frame_time)
+                ui.simfps = "FPS : {0:<5.1f}".format(10/frame_time)
         iter += 1
         time.sleep(0.015)
         update_buffer(iter)
-        m.refresh()
+        #m.refresh()
 
 
