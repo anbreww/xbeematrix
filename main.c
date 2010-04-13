@@ -37,7 +37,7 @@ int main (void)
 	unsigned char txbuff[30];
 	
 
-	unsigned char randseed = 0;
+	//unsigned char randseed = 0;
 	//uint8_t x = 0;
 
 
