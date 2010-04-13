@@ -137,6 +137,16 @@ class Matrix():
     def set_buffer(self, newbuffer):
         self.buffer = newbuffer
 
+    def copybuffer(self):
+        '''Copy working buffer into output buffer.
+
+        If we are performing multiple calls to write the buffer, they should
+        all happen between two successive calls to refresh(). However,
+        acquiring a thread lock during the refresh routine would take too much
+        time and delay the main thread. Therefore, use this shorter method to
+        wrap thread locks around.
+        '''
+        self.outbuffer = self.buffer
 
 
     def refresh(self):
@@ -172,5 +182,5 @@ class Matrix():
         #print("size confirmed : %d (sent %d)" % (int(size), buffer_size))
 
 
-        buffer_str = ''.join([chr(c) for c in self.buffer[0:self.buffer_limit]])
+        buffer_str = ''.join([chr(c) for c in self.outbuffer[0:self.buffer_limit]])
         self.s.write(buffer_str)

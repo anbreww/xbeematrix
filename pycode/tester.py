@@ -32,8 +32,7 @@ class InputThread(threading.Thread):
                 break
         m.finished = True
         m.running = False
-        ui.terminate()
-        m.close()
+        #ui.terminate()
 
 
 class Interface():
@@ -132,17 +131,49 @@ class Interface():
 
 class MatrixUpdater(threading.Thread):
     '''Thread to update matrix at a given rate'''
-    def run(self, framerate=30):
-        lastframe = time.time()
+    def run(self, framerate=30.1):
+        timer = Timer()
+        timer.start()
         interval = 1./framerate
-        time.sleep(2)
+        #time.sleep(2)
         while 1 and m.running:
-            while time.time() < (lastframe + interval):
-                time.sleep(0.001)
+            timer.wait_until_reaches(interval)
             ui.matrixfps = "Matrix FPS : {0:<5.1f}".format(
-                    1/(time.time() - lastframe))
-            lastframe = time.time()
+                    1/(timer.get_elapsed()))
+            timer.start()
+            buffer_lock.acquire()
+            m.copybuffer()
+            buffer_lock.release()
             m.refresh()
+
+
+class Timer():
+    '''Basic timer operations'''
+    id = 0
+
+    def __init__(self):
+        Timer.id += 1
+        self.begin_time = None
+        self.stop_time = None
+
+    def start(self):
+        self.begin_time = time.time()
+
+    def get_elapsed(self):
+        #return self.stop_time - self.begin_time
+        return time.time() - self.begin_time
+
+    def stop(self):
+        self.stop_time = time.time()
+
+    def wait_until_reaches(self, interval):
+        while time.time() < self.begin_time + interval:
+            time.sleep(0.0001)
+        self.stop()
+
+    def wait(self, interval):
+        self.start()
+        self.wait_until_reaches(interval)
 
 
 
@@ -153,22 +184,26 @@ def update_buffer(iteration):
     if(iteration < 2):
         m.set_buffer_size(int(m.panel_size*3))
 
+    nowplaying = mpdi.get_nowplaying()
+
+    buffer_lock.acquire()
     if(iteration % 2 == 0):
         m.scroll_buffer('left')
         m.scroll_buffer('left')
 
     
-    nowplaying = mpdi.get_nowplaying()
     if mpdi.haschanged:
         m.set_buffer_size(len(nowplaying)*14+30)
         m.text_to_buffer(nowplaying, linebreak=False)
 
     m.text_to_buffer(mpdi.get_timestring(), startrow='bottom')
+    buffer_lock.release()
 
     #os.system("clear")
     if m.sim:
         ui.update()
 
+buffer_lock = threading.Lock()
 
 if __name__ == '__main__':
     ENABLE_SIMULATOR = True
@@ -189,7 +224,7 @@ if __name__ == '__main__':
     iter = 0
     updater = MatrixUpdater().start()
     # main program loop
-    while 1:
+    while 1 and m.running:
         if iter % 10 == 0:
             newtime = time.time()
             frame_time = newtime - lasttime
@@ -199,6 +234,9 @@ if __name__ == '__main__':
         iter += 1
         time.sleep(0.015)
         update_buffer(iter)
+        #m.copybuffer()
         #m.refresh()
+
+    ui.terminate()
 
 
