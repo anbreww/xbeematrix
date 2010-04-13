@@ -99,6 +99,9 @@
 void init_matrix(void);
 // issues all the init commands
 
+void matrix_clear(void);
+// clear the display
+
 void init_command(unsigned int command_data);
 // for sending init command
 

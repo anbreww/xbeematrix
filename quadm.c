@@ -5,6 +5,22 @@
 #include "quadm.h"
 
 
+void matrix_clear(void)
+{
+	uint8_t i, b;
+
+	for(b=1;b<=QM_NUM_BOARDS;b++)
+		enable_write(b);
+
+	for(i=0;i<48;i++)
+	{
+		write_byte_to_board(0);
+	}
+
+	for(b=1;b<=QM_NUM_BOARDS;b++)
+		release_board(b);
+}
+
 void write_byte_to_board(uint8_t byte)
 {
 	// this function just shifts out one byte (doesn't touch CS)
@@ -157,4 +173,5 @@ void init_matrix(void)
 	init_command(0b100000110110); 	// internal RC
 	init_command(0b100001011110); 	// commons option (24*16 matrix)
 	init_command(0b100101111110);	// PWM Duty Cycle (16/16)
+	matrix_clear();
 }
