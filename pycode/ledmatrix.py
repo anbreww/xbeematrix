@@ -25,7 +25,7 @@ class Matrix():
 
     buffer = []
     
-    def __init__(self, sim=True, ser=True):
+    def __init__(self, sim=True, ser=True, port='/dev/ttyUSB0'):
         '''Initialize a matrix module with serial communication and font lookup
         table
         '''
@@ -39,7 +39,7 @@ class Matrix():
         self.formatter = form.Formatter(self.fdict)
         
         if self.ser:
-            self.s = serial.Serial('/dev/ttyUSB0', 115200, timeout=0,
+            self.s = serial.Serial(port, 115200, timeout=0,
                                     parity=serial.PARITY_NONE)
         if self.sim:
             #interface = Interface()
@@ -114,7 +114,7 @@ class Matrix():
             index = self.compute_breakpos(string,self.total_columns-startcol)
         word = self.formatter.make_word(string[:index], self.fdict)
         self.list_to_buffer(word, startcol, startrow)
-        if linebreak and startrow=='top':
+        if linebreak and startrow=='top' and index:
             word = self.formatter.make_word(string[index:], self.fdict)
             self.list_to_buffer(word, startcol, row='bottom')
 
