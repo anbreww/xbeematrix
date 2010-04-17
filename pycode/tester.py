@@ -1,5 +1,8 @@
 #!/bin/python
 
+## script version
+version = "0.6.1"
+
 #import signal
 import time
 
@@ -16,6 +19,8 @@ import sys
 import threading
 
 import curses
+
+from optparse import OptionParser
 
 
 class InputThread(threading.Thread):
@@ -194,10 +199,38 @@ class Timer():
         self.wait_until_reaches(interval)
 
 
+def get_options():
+    parser = OptionParser(version="%prog {0}".format(version) )
+
+    parser.add_option("-M", "--noserial", action="store_false",
+            dest="enable_serial", default=True,
+            help="disable serial port (no output to matrix)")
+
+    parser.add_option("-p", "--port", dest="port",
+            help="set serial port to PORT (default : /dev/ttyUSB0", metavar="PORT",
+            default="/dev/ttyUSB0")
+
+    parser.add_option("-q", "--nosimulator", action="store_false",
+            dest="enable_simulator", default=True,
+            help="disable simulator output")
+
+    parser.add_option("-m", "--mode", dest="mode",
+            help="set program mode to MODE (default: mpd)", metavar="MODE",
+            default="mpd")
+
+    parser.add_option("--message", dest="message",
+            help="display MESSAGE on matrix (overrides other options)",
+            metavar="\"MODE\"")
+
+    parser.add_option("--noscroll", dest="scroll",
+            help="don't scroll display", action="store_false", default=True)
+
+    return parser.parse_args()
 
 
 
-def update_buffer(iteration):
+def mpd_loop(iteration):
+    '''main buffer update loop for mpd mode'''
 
     if(iteration < 2):
         m.set_buffer_size(int(m.panel_size*3))
@@ -218,16 +251,40 @@ def update_buffer(iteration):
     buffer_lock.release()
 
     #os.system("clear")
-    if m.sim:
-        ui.update()
+
+def message_loop(iteration, scroll=False, messages=['No message given!!']):
+    '''main buffer update loop for displaying a message
+    
+    TODO : accept a list of messages to display at a given interval, with an
+    option to scroll each message'''
+    curr_message = messages[0]
+
+    buffer_lock.acquire()
+
+    if scroll and iteration % 2 == 0:
+        m.scroll_buffer('left')
+        m.scroll_buffer('left')
+
+    if(iteration < 2):
+        m.set_buffer_size(len(curr_message)*14+30)
+        m.text_to_buffer(curr_message)
+
+    if not scroll and len(messages) > 1:
+        '''display two lines'''
+        m.text_to_buffer(messages[1], startrow='bottom')
+
+
+
+    buffer_lock.release()
 
 buffer_lock = threading.Lock()
 
 if __name__ == '__main__':
-    ENABLE_SIMULATOR = True
-    ENABLE_SERIAL    = True
+    (options, args) = get_options()
+    ENABLE_SIMULATOR = options.enable_simulator
+    ENABLE_SERIAL    = options.enable_serial
 
-    m = ledmatrix.Matrix(sim=ENABLE_SIMULATOR,ser=ENABLE_SERIAL)
+    m = ledmatrix.Matrix(port=options.port,sim=ENABLE_SIMULATOR,ser=ENABLE_SERIAL)
     f = form.Formatter(m.fdict)
     mpdi = mpdinfo.MpdInfo()
 
@@ -259,9 +316,17 @@ if __name__ == '__main__':
                 ui.simfps = "Buffer FPS : {0:<5.1f}".format(10/frame_time)
         iter += 1
         #time.sleep(1./buffer_scroll_rate)
-        update_buffer(iter)
-        #m.copybuffer()
-        #m.refresh()
+
+        if options.message:
+            messages=[options.message]
+            if options.mode == 'beer':
+                messages.append('{0:}'.format(iter))
+            message_loop(iter, scroll=options.scroll, messages=messages)
+        elif options.mode == 'mpd':
+            mpd_loop(iter)
+
+        if m.sim:
+            ui.update()
 
     if m.sim:
         ui.terminate()
