@@ -3,14 +3,16 @@ from lcdfont import font as xfont
 class Formatter():
     '''Provides various buffer and string manipulation methods'''
     def __init__(self, font_dictionary=xfont):
+        '''yargh, this be broken, xfont is not a dictionary!!!'''
         self.fdict = font_dictionary
 
     def char_to_hashes(self,char):
         return [self.disp_bin(c) for c in char]
+
     def disp_bin(self,n):
         '''display binary as # and ' ' '''
-        binstr = "{0:07b}".format(n)
-        return binstr.replace('0b','').replace('1','#').replace('0',' ')
+        binstr = "{0:08b}".format(n)
+        return binstr.replace('1','#').replace('0',' ')
 
     def rotate_list(self,hash):
         output = []

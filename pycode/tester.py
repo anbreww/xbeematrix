@@ -72,7 +72,7 @@ class Interface():
         curses.cbreak()
         curses.noecho()
         curses.curs_set(0) # hide cursor
-        self.mpad = curses.newpad(17,98)
+        self.mpad = curses.newpad(18,98)
         self.init_colors()
 
     def init_colors(self):
@@ -131,7 +131,7 @@ class Interface():
 
         lines = []
         lines= f.return_list(m.get_buffer()[:192:2])
-        lines.append("")
+        #lines.append("")
         lines.extend(f.return_list(m.get_buffer()[1:192:2]))
         ypos = 1
         for line in lines:
