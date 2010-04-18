@@ -25,7 +25,7 @@ class Matrix():
 
     buffer = []
     
-    def __init__(self, sim=True, ser=True):
+    def __init__(self, sim=True, ser=True, port='/dev/ttyUSB0'):
         '''Initialize a matrix module with serial communication and font lookup
         table
         '''
@@ -35,10 +35,11 @@ class Matrix():
         self.sim = sim
         self.ser = ser
         self.finished = False
+        self.running = True
         self.formatter = form.Formatter(self.fdict)
         
         if self.ser:
-            self.s = serial.Serial('/dev/ttyUSB0', 115200, timeout=0,
+            self.s = serial.Serial(port, 115200, timeout=0,
                                     parity=serial.PARITY_NONE)
         if self.sim:
             #interface = Interface()
@@ -62,6 +63,7 @@ class Matrix():
         if self.ser:
             self.s.close()
         self.finished = True
+        self.running = False
 
     def _build_font(self,fnt='default'):
         '''Parse font from a file and populate dictionary'''
@@ -112,7 +114,7 @@ class Matrix():
             index = self.compute_breakpos(string,self.total_columns-startcol)
         word = self.formatter.make_word(string[:index], self.fdict)
         self.list_to_buffer(word, startcol, startrow)
-        if linebreak and startrow=='top':
+        if linebreak and startrow=='top' and index:
             word = self.formatter.make_word(string[index:], self.fdict)
             self.list_to_buffer(word, startcol, row='bottom')
 
@@ -135,6 +137,16 @@ class Matrix():
     def set_buffer(self, newbuffer):
         self.buffer = newbuffer
 
+    def copybuffer(self):
+        '''Copy working buffer into output buffer.
+
+        If we are performing multiple calls to write the buffer, they should
+        all happen between two successive calls to refresh(). However,
+        acquiring a thread lock during the refresh routine would take too much
+        time and delay the main thread. Therefore, use this shorter method to
+        wrap thread locks around.
+        '''
+        self.outbuffer = self.buffer
 
 
     def refresh(self):
@@ -170,5 +182,5 @@ class Matrix():
         #print("size confirmed : %d (sent %d)" % (int(size), buffer_size))
 
 
-        buffer_str = ''.join([chr(c) for c in self.buffer[0:self.buffer_limit]])
+        buffer_str = ''.join([chr(c) for c in self.outbuffer[0:self.buffer_limit]])
         self.s.write(buffer_str)

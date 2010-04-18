@@ -1,4 +1,7 @@
-#!/bin/python
+#!/usr/bin/python
+
+## script version
+version = "0.6.1"
 
 #import signal
 import time
@@ -17,6 +20,8 @@ import threading
 
 import curses
 
+from optparse import OptionParser
+
 
 class InputThread(threading.Thread):
     '''Listen for keyboard input.
@@ -26,12 +31,30 @@ class InputThread(threading.Thread):
     def run(self):
         #stdscr.addstr(17,0,"Thread running")
         #ui.stdscr.refresh()
+        if not m.sim:
+            self.show_help()
         while 1:
-            c = ui.stdscr.getch()
-            if c == ord('q'):
-                break
-        ui.terminate()
-        m.close()
+            if m.sim:
+                c = ui.stdscr.getch()
+                if c == ord('q'):
+                    break
+            else:
+                print "\n >",
+                i = raw_input()
+                if i == 'q':
+                    break
+                elif i == 'h':
+                    self.show_help()
+                else:
+                    print("Command not recognized")
+        m.finished = True
+        m.running = False
+        #ui.terminate()
+
+    def show_help(self):
+        print("Available commands:")
+        print("q - quit")
+        print("h - help")
 
 
 class Interface():
@@ -39,7 +62,8 @@ class Interface():
 
     statusstring = "LED Matrix Controller | Andrew Watson | Robopoly - 2010"
     display_fps = False
-    fps = ''
+    simfps = ''
+    matrixfps = ''
 
     def __init__(self):
         self.stdscr = curses.initscr()
@@ -77,14 +101,14 @@ class Interface():
         win.addstr(winy-1,rightx, " ]", white_bold)
         win.addstr(winy-1,leftx,status, color | curses.A_BOLD)
 
-    def statusline(self, statusmsg, color=None):
+    def statusline(self, statusmsg, color=None, offset=0):
         '''print a status message at the bottom of main window'''
         win = self.stdscr
         if not color:
             color = curses.color_pair(0)
         (winy, winx) = win.getmaxyx()
         xbegin = winx - len(statusmsg) - 1
-        win.addstr(winy-2,xbegin,statusmsg, color | curses.A_BOLD)
+        win.addstr(winy-2-offset,xbegin,statusmsg, color | curses.A_BOLD)
 
 
     def update(self):
@@ -117,7 +141,8 @@ class Interface():
         #self.centered_status("LED Matrix Controller - Andrew Watson - 2010")
         #self.centered_status("Robopoly", self.stdscr, curses.color_pair(1))
         if self.display_fps:
-            self.statusline(self.fps)
+            self.statusline(self.simfps)
+            self.statusline(self.matrixfps, offset=1)
         self.centered_status(self.statusstring , self.stdscr)
 
         #mpdclient.connect('localhost',6600)
@@ -126,39 +151,144 @@ class Interface():
 
 
 
+class MatrixUpdater(threading.Thread):
+    '''Thread to update matrix at a given rate'''
+    def run(self, framerate=40.1):
+        timer = Timer()
+        timer.start()
+        interval = 1./framerate
+        #time.sleep(2)
+        while 1 and m.running:
+            timer.wait_until_reaches(interval)
+            if m.sim:
+                ui.matrixfps = "Matrix FPS : {0:<5.1f}".format(
+                        1/(timer.get_elapsed()))
+            timer.start()
+            buffer_lock.acquire()
+            m.copybuffer()
+            buffer_lock.release()
+            m.refresh()
+
+
+class Timer():
+    '''Basic timer operations'''
+    id = 0
+
+    def __init__(self):
+        Timer.id += 1
+        self.begin_time = None
+        self.stop_time = None
+
+    def start(self):
+        self.begin_time = time.time()
+
+    def get_elapsed(self):
+        #return self.stop_time - self.begin_time
+        return time.time() - self.begin_time
+
+    def stop(self):
+        self.stop_time = time.time()
+
+    def wait_until_reaches(self, interval):
+        while time.time() < self.begin_time + interval:
+            time.sleep(0.0001)
+        self.stop()
+
+    def wait(self, interval):
+        self.start()
+        self.wait_until_reaches(interval)
+
+
+def get_options():
+    parser = OptionParser(version="%prog {0}".format(version) )
+
+    parser.add_option("-M", "--noserial", action="store_false",
+            dest="enable_serial", default=True,
+            help="disable serial port (no output to matrix)")
+
+    parser.add_option("-p", "--port", dest="port",
+            help="set serial port to PORT (default : /dev/ttyUSB0", metavar="PORT",
+            default="/dev/ttyUSB0")
+
+    parser.add_option("-q", "--nosimulator", action="store_false",
+            dest="enable_simulator", default=True,
+            help="disable simulator output")
+
+    parser.add_option("-m", "--mode", dest="mode",
+            help="set program mode to MODE (default: mpd)", metavar="MODE",
+            default="mpd")
+
+    parser.add_option("--message", dest="message",
+            help="display MESSAGE on matrix (overrides other options)",
+            metavar="\"MODE\"")
+
+    parser.add_option("--noscroll", dest="scroll",
+            help="don't scroll display", action="store_false", default=True)
+
+    return parser.parse_args()
 
 
 
-
-
-
-def update_buffer(iteration):
+def mpd_loop(iteration):
+    '''main buffer update loop for mpd mode'''
 
     if(iteration < 2):
         m.set_buffer_size(int(m.panel_size*3))
 
-    if(iteration % 2 == 0):
+    nowplaying = mpdi.get_nowplaying()
+
+    buffer_lock.acquire()
+    if(iteration % 1 == 0):
         m.scroll_buffer('left')
         m.scroll_buffer('left')
 
     
-    nowplaying = mpdi.get_nowplaying()
     if mpdi.haschanged:
         m.set_buffer_size(len(nowplaying)*14+30)
         m.text_to_buffer(nowplaying, linebreak=False)
 
     m.text_to_buffer(mpdi.get_timestring(), startrow='bottom')
+    buffer_lock.release()
 
     #os.system("clear")
-    if m.sim:
-        ui.update()
 
+def message_loop(iteration, scroll=False, messages=['No message given!!']):
+    '''main buffer update loop for displaying a message
+    
+    TODO : accept a list of messages to display at a given interval, with an
+    option to scroll each message'''
+    top_offset = (iteration / 100) % len(messages)
+    bot_offset = (top_offset + 1) % len(messages)
+
+
+    curr_message = messages[top_offset]
+
+    buffer_lock.acquire()
+
+    if scroll and iteration % 2 == 0:
+        m.scroll_buffer('left')
+        m.scroll_buffer('left')
+
+    if(iteration < 2 or iteration % 100 == 0):
+        m.set_buffer_size(len(curr_message)*14+30)
+        m.text_to_buffer(curr_message)
+
+    if not scroll and len(messages) > 1:
+        '''display two lines'''
+        m.text_to_buffer(messages[bot_offset], startrow='bottom')
+
+
+
+    buffer_lock.release()
+
+buffer_lock = threading.Lock()
 
 if __name__ == '__main__':
-    ENABLE_SIMULATOR = True
-    ENABLE_SERIAL    = True
+    (options, args) = get_options()
+    ENABLE_SIMULATOR = options.enable_simulator
+    ENABLE_SERIAL    = options.enable_serial
 
-    m = ledmatrix.Matrix(sim=ENABLE_SIMULATOR,ser=ENABLE_SERIAL)
+    m = ledmatrix.Matrix(port=options.port,sim=ENABLE_SIMULATOR,ser=ENABLE_SERIAL)
     f = form.Formatter(m.fdict)
     mpdi = mpdinfo.MpdInfo()
 
@@ -168,20 +298,63 @@ if __name__ == '__main__':
     if m.sim:
         ui = Interface()
         ui.display_fps = True
-        InputThread().start()
+    InputThread().start()
 
     iter = 0
+    updater = MatrixUpdater().start()
+
+    # in fps
+    buffer_scroll_rate = 30
+    buffer_timer = Timer()
+    buffer_timer.start()
+
     # main program loop
-    while 1:
-        if iter % 10 == 0:
+    while 1 and m.running:
+        buffer_timer.wait_until_reaches(1./buffer_scroll_rate)
+        buffer_timer.start()
+        if iter % 10 == 0 and m.sim == True:
             newtime = time.time()
             frame_time = newtime - lasttime
             lasttime = newtime
             if iter > 0:
-                ui.fps = "FPS : {0:<3.0f}".format(10/frame_time)
+                ui.simfps = "Buffer FPS : {0:<5.1f}".format(10/frame_time)
         iter += 1
-        time.sleep(0.015)
-        update_buffer(iter)
-        m.refresh()
+        #time.sleep(1./buffer_scroll_rate)
+
+        if options.message:
+            messages=options.message.split("|")
+            if options.mode == 'beer':
+                messages.append('{0:}'.format(iter))
+            message_loop(iter, scroll=options.scroll, messages=messages)
+        elif options.mode == 'mpd':
+            mpd_loop(iter)
+        elif options.mode == 'invaders':
+            from sprites import invaders
+            picture = []
+            for i in range(5):
+                picture.extend(invaders[i])
+                picture.extend(7*[0])
+            bottomline = picture[45:]
+            bottomline.extend(picture[:45])
+            if iter < 2:
+                m.set_buffer_size(191)
+                m.list_to_buffer(picture)
+                #m.list_to_buffer(bottomline, row='bottom')
+            elif iter % 5 == 0:
+                m.scroll_buffer('left'); m.scroll_buffer('left')
+        elif options.mode == 'robopoly':
+            from sprites import robopoly
+            if iter < 2:
+                m.set_buffer_size(192+96)
+                m.list_to_buffer(robopoly[0])
+                m.list_to_buffer(robopoly[1], row='bottom')
+            elif iter % 2 == 0:
+                m.scroll_buffer('left'); m.scroll_buffer('left')
+
+        if m.sim:
+            ui.update()
+
+    if m.sim:
+        ui.terminate()
 
 
