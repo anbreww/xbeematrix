@@ -12,7 +12,14 @@
 
 
 #define SCROLLRATE      0
+#define READY_FOR_INPUT		'R'
+#define ACCEPTED_DELIMITER 	'K'
+#define END_OF_FILE		'E'
+#define START_BYTE		0x73 // 's'
+#define put(x)	uart_transmit_byte_block(x)
 
+#define L_OF 2
+#define B_END QM_BUFFER_SIZE
 
 unsigned char bigbuffer[QM_BUFFER_SIZE];
 //unsigned char bigbuffer[QM_X_PIXELS][QM_Y_PIXELS];
@@ -30,49 +37,25 @@ int main (void)
 	DDRB = 0xFF;
 
 	DDRD = 0xFF;
-	//TCCR2 = 0b00010001;
-	//OCR2 = 0x00;
-	//
+	
 	unsigned char rxbuff[30];
 	unsigned char txbuff[30];
-	
-
-	//unsigned char randseed = 0;
-	//uint8_t x = 0;
-
 
 	init_matrix();
 
-#define L_OF 2
-#define B_END QM_BUFFER_SIZE
-
 	uart_init(0, rxbuff, 0, 0, txbuff);
 	_delay_ms(300);
-	//uart_transmit_string_block("Ready for input. Please enter command as follows:\r\n ");
-	//uart_transmit_string_block("<delimiter:\\x73><payload-size>payload\r\n ");
-	//randseed = uart_receive_byte_block();
-	//uart_transmit_byte_block(randseed);
-	//uart_transmit_string_block("\r\n");
-	//
-#define READY_FOR_INPUT		'R'
-#define ACCEPTED_DELIMITER 	'K'
-#define END_OF_FILE		'E'
-#define put(x)	uart_transmit_byte_block(x)
 
-
-	
 
 	while(1)
 	{
-		//uart_transmit_string_block("Ready for input. Please enter command as follows:\r\n ");
-		//uart_transmit_string_block("<delimiter:\\x73><payload-size>payload\r\n ");
 		put(READY_FOR_INPUT);
 
 		// listen for input on uart
 		unsigned char rxchar = 0;
 		unsigned char nops;
 		nops = 0;
-		while (rxchar != 0x73)
+		while (rxchar != START_BYTE)
 		{
 			rxchar = uart_receive_byte_block();
 
@@ -83,34 +66,20 @@ int main (void)
 		}
 
 		put(ACCEPTED_DELIMITER);
+
 		// read array size from next char (low, high)
 		unsigned char size_l = uart_receive_byte_block();
 		//unsigned char size_h = uart_receive_byte_block(); //unimplemented
+		
 		// verify size
 		//uart_send_dec((int)size_l);
-		//
+		
 		int i = 0;
 		for (i = 0; i < size_l; i++)
 		{
 			bigbuffer[i] = uart_receive_byte_block();
 		}
 
-		//put(END_OF_FILE);
-		//put('\r');
-		//put('\n');
-
-
-		// display new info on board
-
-
-
-		//srand(randseed);
-
-
-
-		//_delay_ms(8);
-
-		//write_array_to_board(bigbuffer,scroll,QM_BUFFER_SIZE-1);
 		write_array_to_board(bigbuffer,scroll,QM_BUFFER_SIZE-1);
 
 
@@ -120,7 +89,6 @@ int main (void)
 			//_delay_ms(5000);	// and pause to show the first panel
 		}
 		
-		//_delay_ms(75); 	// scroll interval 
 		scroll += SCROLLRATE;	// 1 vertical line = 2 bytes
 
 
