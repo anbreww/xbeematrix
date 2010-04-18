@@ -328,6 +328,7 @@ if __name__ == '__main__':
             message_loop(iter, scroll=options.scroll, messages=messages)
         elif options.mode == 'mpd':
             mpd_loop(iter)
+        # FIXME : Merge all the following options into one!!
         elif options.mode == 'invaders':
             from sprites import invaders
             picture = []
@@ -348,6 +349,14 @@ if __name__ == '__main__':
                 m.set_buffer_size(192+96)
                 m.list_to_buffer(robopoly[0])
                 m.list_to_buffer(robopoly[1], row='bottom')
+            elif iter % 2 == 0:
+                m.scroll_buffer('left'); m.scroll_buffer('left')
+        elif options.mode == 'epfl':
+            from sprites import epfl
+            if iter < 2:
+                m.set_buffer_size(192+12)
+                m.list_to_buffer(epfl[0])
+                m.list_to_buffer(epfl[1], row='bottom')
             elif iter % 2 == 0:
                 m.scroll_buffer('left'); m.scroll_buffer('left')
 
