@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 ## script version
 version = "0.6.1"
@@ -257,7 +257,11 @@ def message_loop(iteration, scroll=False, messages=['No message given!!']):
     
     TODO : accept a list of messages to display at a given interval, with an
     option to scroll each message'''
-    curr_message = messages[0]
+    top_offset = (iteration / 100) % len(messages)
+    bot_offset = (top_offset + 1) % len(messages)
+
+
+    curr_message = messages[top_offset]
 
     buffer_lock.acquire()
 
@@ -265,13 +269,13 @@ def message_loop(iteration, scroll=False, messages=['No message given!!']):
         m.scroll_buffer('left')
         m.scroll_buffer('left')
 
-    if(iteration < 2):
+    if(iteration < 2 or iteration % 100 == 0):
         m.set_buffer_size(len(curr_message)*14+30)
         m.text_to_buffer(curr_message)
 
     if not scroll and len(messages) > 1:
         '''display two lines'''
-        m.text_to_buffer(messages[1], startrow='bottom')
+        m.text_to_buffer(messages[bot_offset], startrow='bottom')
 
 
 
@@ -318,12 +322,26 @@ if __name__ == '__main__':
         #time.sleep(1./buffer_scroll_rate)
 
         if options.message:
-            messages=[options.message]
+            messages=options.message.split("|")
             if options.mode == 'beer':
                 messages.append('{0:}'.format(iter))
             message_loop(iter, scroll=options.scroll, messages=messages)
         elif options.mode == 'mpd':
             mpd_loop(iter)
+        elif options.mode == 'invaders':
+            from invaders import invaders
+            picture = []
+            for i in range(5):
+                picture.extend(invaders[i])
+                picture.extend(7*[0])
+            bottomline = picture[45:]
+            bottomline.extend(picture[:45])
+            if iter < 2:
+                m.set_buffer_size(191)
+                m.list_to_buffer(picture)
+                #m.list_to_buffer(bottomline, row='bottom')
+            elif iter % 5 == 0:
+                m.scroll_buffer('left'); m.scroll_buffer('left')
 
         if m.sim:
             ui.update()
