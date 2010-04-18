@@ -329,7 +329,7 @@ if __name__ == '__main__':
         elif options.mode == 'mpd':
             mpd_loop(iter)
         elif options.mode == 'invaders':
-            from invaders import invaders
+            from sprites import invaders
             picture = []
             for i in range(5):
                 picture.extend(invaders[i])
@@ -341,6 +341,14 @@ if __name__ == '__main__':
                 m.list_to_buffer(picture)
                 #m.list_to_buffer(bottomline, row='bottom')
             elif iter % 5 == 0:
+                m.scroll_buffer('left'); m.scroll_buffer('left')
+        elif options.mode == 'robopoly':
+            from sprites import robopoly
+            if iter < 2:
+                m.set_buffer_size(192+96)
+                m.list_to_buffer(robopoly[0])
+                m.list_to_buffer(robopoly[1], row='bottom')
+            elif iter % 2 == 0:
                 m.scroll_buffer('left'); m.scroll_buffer('left')
 
         if m.sim:
