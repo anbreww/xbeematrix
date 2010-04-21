@@ -359,6 +359,16 @@ if __name__ == '__main__':
                 m.list_to_buffer(epfl[1], row='bottom')
             elif iter % 2 == 0:
                 m.scroll_buffer('left'); m.scroll_buffer('left')
+        elif options.mode == 'webcam':
+            from webcam import Webcam
+            from hashtoarr import *
+            if iter < 2:
+                cam = Webcam(0)
+                m.set_buffer_size(192)
+            list = cam.get_array_from_cam(flip=1, resize=6)
+            arr = lines_to_buffers(list)
+            m.list_to_buffer(arr[0])
+            m.list_to_buffer(arr[1], row='bottom')
 
         if m.sim:
             ui.update()
