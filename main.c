@@ -9,6 +9,7 @@
 
 #include "quadm.h"
 #include "uart.h"
+#include "xbee.h"
 
 
 #define SCROLLRATE      0
@@ -24,6 +25,9 @@
 unsigned char bigbuffer[QM_BUFFER_SIZE];
 //unsigned char bigbuffer[QM_X_PIXELS][QM_Y_PIXELS];
 //unsigned char bigbuffer2[QM_BUFFER_SIZE];
+
+
+#define WIRELESS 0
 
 
 int main (void)
@@ -42,6 +46,9 @@ int main (void)
 	unsigned char txbuff[30];
 
 	init_matrix();
+	#ifdef WIRELESS
+	init_xbee();
+	#endif
 
 	uart_init(0, rxbuff, 0, 0, txbuff);
 	_delay_ms(300);
@@ -94,6 +101,4 @@ int main (void)
 
 	}
 }
-
-
 
