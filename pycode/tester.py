@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2.7
 
 ## script version
 version = "0.6.1"
@@ -225,6 +225,9 @@ def get_options():
     parser.add_option("--noscroll", dest="scroll",
             help="don't scroll display", action="store_false", default=True)
 
+    parser.add_option("--nomirror", dest="mirror",
+            help="don't mirror flip display horizontally", action="store_false", default=True)
+
     return parser.parse_args()
 
 
@@ -360,12 +363,16 @@ if __name__ == '__main__':
             elif iter % 2 == 0:
                 m.scroll_buffer('left'); m.scroll_buffer('left')
         elif options.mode == 'webcam':
+            if options.mirror:
+                flip = 1
+            else:
+                flip = None
             from webcam import Webcam
             from hashtoarr import *
             if iter < 2:
                 cam = Webcam(0)
                 m.set_buffer_size(192)
-            list = cam.get_array_from_cam(flip=1, resize=6)
+            list = cam.get_array_from_cam(flip=flip, resize=6)
             arr = lines_to_buffers(list)
             m.list_to_buffer(arr[0])
             m.list_to_buffer(arr[1], row='bottom')

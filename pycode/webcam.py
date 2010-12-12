@@ -7,12 +7,13 @@ class Webcam():
     def __init__(self, device=0):
         self.capture = cv.CreateCameraCapture(device)
 
-    def get_capture(self,flip=0):
+    def get_capture(self,flip=None):
         '''acquire image from camera
 
-        set flip = 1 to mirror image'''
+        set flip = 1 for image to act as mirror. flip = 0 is vertical mirror'''
         img = cv.QueryFrame(self.capture)
-        cv.Flip(img,img,flip)
+        if flip:
+            cv.Flip(img,img,flip)
         return img
 
     def convert(self, img):
